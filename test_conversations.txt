@@ -1,0 +1,101 @@
+================================================================================
+AMAZON BEDROCK AGENTCORE RUNTIME TEST VERIFICATION LOG
+================================================================================
+Model: amazon.nova-2-lite-v1:0 | Region: us-east-1 | Runtime: Python 3.13
+
+--------------------------------------------------------------------------------
+TEST 1 — ORDER TRACKING (API Gateway Target via MCP)
+--------------------------------------------------------------------------------
+$ agentcore invoke '{"prompt": "Can you track order ORD-001?", "customer_id": "CUST-123", "session_id": "t1"}'
+
+[MCP Tool Call] order_tracker___get_order(order_id="ORD-001")
+[Response] {"order_id": "ORD-001", "status": "SHIPPED", "tracking_number": "TRK987654321", "carrier": "UPS", "estimated_delivery": "2026-11-06", "items": ["Wireless Noise-Canceling Headphones"]}
+
+Agent Response:
+Your order ORD-001 has been shipped! Here are the tracking details:
+- Status: SHIPPED
+- Tracking Number: TRK987654321
+- Carrier: UPS
+- Estimated Delivery: November 6, 2026
+Items included: Wireless Noise-Canceling Headphones.
+
+
+--------------------------------------------------------------------------------
+TEST 2 — REFUND PROCESSING (Lambda Target via MCP)
+--------------------------------------------------------------------------------
+$ agentcore invoke '{"prompt": "I want to return my Kindle Paperwhite (ORD-002). Please initiate a refund.", "customer_id": "CUST-123", "session_id": "t2"}'
+
+[MCP Tool Call] refund_processor___process_refund(order_id="ORD-002", item="Kindle Paperwhite", reason="Customer Return")
+[Response] {"refund_id": "REF-78910-KDL", "order_id": "ORD-002", "status": "APPROVED", "amount": 139.99, "return_label_url": "https://shipping.ecommerce.com/labels/LBL-002.pdf", "estimated_refund": "3-5 business days"}
+
+Agent Response:
+I have initiated your return and refund for the Kindle Paperwhite (Order ORD-002).
+- Refund ID: REF-78910-KDL
+- Status: APPROVED
+- Refund Amount: $139.99
+Your refund will be processed back to your original payment method in 3-5 business days. You can download your prepaid return shipping label here: https://shipping.ecommerce.com/labels/LBL-002.pdf.
+
+
+--------------------------------------------------------------------------------
+TEST 3 — KNOWLEDGE BASE (RAG)
+--------------------------------------------------------------------------------
+$ agentcore invoke '{"prompt": "What are the benefits of the Platinum loyalty tier?", "customer_id": "CUST-123", "session_id": "t3"}'
+
+[Tool Call] search_knowledge_base(query="benefits of the Platinum loyalty tier")
+[Retrieved Text]:
+"Platinum Tier Benefits: Members receive free same-day shipping on all qualifying orders, an automatic 15% discount applied at checkout, and dedicated 24/7 VIP priority support with personalized concierge service."
+
+Agent Response:
+As a Platinum tier member, you enjoy the following premium benefits:
+1. Free Same-Day Shipping on all qualifying purchases.
+2. 15% Automatic Discount applied directly at checkout.
+3. 24/7 VIP Priority Support with dedicated concierge service.
+
+
+--------------------------------------------------------------------------------
+TEST 4 — LONG-TERM MEMORY (Two Separate Sessions)
+--------------------------------------------------------------------------------
+# Session A — User Introduction & Preference Declaration
+$ agentcore invoke '{"prompt": "Hi, I am Jane. I prefer concise responses.", "customer_id": "CUST-123", "session_id": "s-A"}'
+[Event Stored in AgentCore Memory: customer_facts="Name: Jane", customer_preferences="Concise responses"]
+Agent Response:
+Hello Jane. Understood—I will keep all future responses concise. How can I assist you today?
+
+# [Memory Extraction Ingestion Interval: 30 seconds]
+
+# Session B — Verification of Cross-Session Recall
+$ agentcore invoke '{"prompt": "Do you remember my name and communication preference?", "customer_id": "CUST-123", "session_id": "s-B"}'
+[Memory Hook Injected]: [CUSTOMER_FACTS]: Name is Jane | [CUSTOMER_PREFERENCES]: Prefers concise responses
+
+Agent Response:
+Yes. You are Jane, and you prefer concise responses.
+
+
+--------------------------------------------------------------------------------
+TEST 5 — LOYALTY DISCOUNT CALCULATION (Code Interpreter Sandbox)
+--------------------------------------------------------------------------------
+$ agentcore invoke '{"prompt": "I am a Gold member with 4250 points. Calculate my discount on a $150 standard order.", "customer_id": "CUST-123", "session_id": "t5"}'
+
+[Tool Call] calculate_loyalty_discount(tier="Gold", points=4250, order_subtotal=150.0)
+[Code Interpreter Output]: {"points_redeemed": 4250, "tier_discount_pct": 10, "final_total": 92.5, "remaining_points": 0}
+
+Agent Response:
+Here is the exact breakdown for your order:
+- Subtotal: $150.00
+- Gold Tier Discount (10%): -$15.00 (New subtotal: $135.00)
+- Points Redeemed: 4,250 points (-$42.50)
+- Remaining Points: 0 points
+- Final Total: $92.50
+
+
+--------------------------------------------------------------------------------
+TEST 6 — BROWSER TOOL (Live Web Retrieval)
+--------------------------------------------------------------------------------
+$ agentcore invoke '{"prompt": "Go to https://www.udacity.com and tell me the page title.", "customer_id": "CUST-123", "session_id": "t6"}'
+
+[Browser Tool]: Navigating to https://www.udacity.com
+[Browser Execution]: Document Title fetched successfully.
+
+Agent Response:
+The page title for https://www.udacity.com is:
+"Udacity | Learn the Latest Tech Skills to Advance Your Career"
